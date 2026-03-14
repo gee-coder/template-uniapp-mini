@@ -6,7 +6,7 @@
 import { onLaunch } from '@dcloudio/uni-app'
 
 onLaunch(() => {
-  console.log('Nex Miniapp launched')
+  console.log('Nex 小程序已启动')
 })
 </script>
 

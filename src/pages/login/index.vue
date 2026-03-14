@@ -1,17 +1,19 @@
 <template>
   <view class="page-shell login-page">
     <view class="card login-card">
-      <text class="eyebrow">Miniapp login</text>
-      <text class="title">Use the shared JWT flow across admin and miniapp.</text>
+      <text class="eyebrow">账号登录</text>
+      <text class="title">和后台共用同一套令牌鉴权流程，方便统一联调与后续扩展。</text>
+      <text class="hint">接口地址：{{ apiBaseUrl }}</text>
+      <text v-if="deviceHint" class="hint hint--warning">{{ deviceHint }}</text>
       <view class="field">
-        <text>Username</text>
+        <text>用户名</text>
         <input v-model="form.username" placeholder="admin" />
       </view>
       <view class="field">
-        <text>Password</text>
+        <text>密码</text>
         <input v-model="form.password" password placeholder="Admin123!" />
       </view>
-      <button class="action-btn" :disabled="loading" @click="submit">{{ loading ? 'Signing in...' : 'Sign in' }}</button>
+      <button class="action-btn" :disabled="loading" @click="submit">{{ loading ? '登录中...' : '立即登录' }}</button>
     </view>
   </view>
 </template>
@@ -19,9 +21,12 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useAuthStore } from '@/store/auth'
+import { API_BASE_URL, API_BASE_URL_DEVICE_HINT } from '@/common/constants'
 
 const authStore = useAuthStore()
 const loading = ref(false)
+const apiBaseUrl = API_BASE_URL
+const deviceHint = API_BASE_URL_DEVICE_HINT
 const form = reactive({
   username: 'admin',
   password: 'Admin123!',
@@ -34,7 +39,7 @@ async function submit() {
     uni.switchTab({ url: '/pages/index/index' })
   } catch (error) {
     uni.showToast({
-      title: error instanceof Error ? error.message : 'Login failed',
+      title: error instanceof Error ? error.message : '登录失败',
       icon: 'none',
     })
   } finally {
@@ -71,6 +76,16 @@ async function submit() {
 .field {
   display: grid;
   gap: 10rpx;
+}
+
+.hint {
+  color: #64748b;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.hint--warning {
+  color: #b45309;
 }
 
 .field input {

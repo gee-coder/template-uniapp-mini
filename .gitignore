@@ -1,7 +1,8 @@
 node_modules/
 dist/
 unpackage/dist/
+.env.local
+.env.*.local
 .DS_Store
 .idea/
 .vscode/
-

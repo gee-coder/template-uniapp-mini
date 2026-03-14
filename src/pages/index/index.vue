@@ -1,10 +1,10 @@
 <template>
   <view class="page-shell home-page">
     <view class="card hero">
-      <text class="eyebrow">Miniapp shell</text>
-      <text class="title">A ready starting point for WeChat and Douyin delivery.</text>
+      <text class="eyebrow">小程序底座</text>
+      <text class="title">先把微信小程序跑顺，再在这套底座上继续叠业务。</text>
       <text class="copy">
-        This template shares the same auth payload and response envelope as the backend and admin console.
+        当前模板已经和后端、管理后台对齐同一套响应结构与鉴权协议，联调时会更省心。
       </text>
     </view>
 
@@ -20,13 +20,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '@/store/auth'
+import { API_BASE_URL_SOURCE } from '@/common/constants'
 
 const authStore = useAuthStore()
 
 const metrics = computed(() => [
-  { label: 'Auth mode', value: 'JWT' },
-  { label: 'Current user', value: authStore.profile?.nickname || 'Guest' },
-  { label: 'Shared repos', value: '4' },
+  { label: '鉴权模式', value: '令牌鉴权' },
+  { label: '当前用户', value: authStore.profile?.nickname || '游客' },
+  { label: '接口来源', value: API_BASE_URL_SOURCE === 'env' ? '自定义配置' : '本机地址' },
+  { label: '协同仓库', value: '4' },
 ])
 </script>
 
@@ -70,4 +72,3 @@ const metrics = computed(() => [
   font-weight: 700;
 }
 </style>
-

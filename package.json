@@ -17,6 +17,8 @@
     "vue": "3.4.21"
   },
   "devDependencies": {
+    "@dcloudio/uni-mp-toutiao": "^3.0.0-4080720251210001",
+    "@dcloudio/uni-mp-weixin": "^3.0.0-4080720251210001",
     "@dcloudio/vite-plugin-uni": "3.0.0-4080720251210001",
     "@types/node": "22.15.30",
     "sass": "1.89.2",

@@ -1,6 +1,6 @@
-import * as VueRuntime from 'vue/dist/vue.runtime.esm-browser.js'
+import * as VueRuntime from 'vue/dist/vue.runtime.esm-bundler.js'
 
-export * from 'vue/dist/vue.runtime.esm-browser.js'
+export * from 'vue/dist/vue.runtime.esm-bundler.js'
 
 export const isInSSRComponentSetup = false
 export function injectHook(...args: unknown[]) {

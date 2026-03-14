@@ -1,12 +1,12 @@
 <template>
   <view class="page-shell user-page">
     <view class="card profile-card">
-      <text class="title">User center</text>
-      <text class="line">Nickname: {{ authStore.profile?.nickname || '-' }}</text>
-      <text class="line">Username: {{ authStore.profile?.username || '-' }}</text>
-      <text class="line">Roles: {{ authStore.profile?.roles?.join(', ') || '-' }}</text>
-      <text class="line">Permissions: {{ authStore.profile?.permissions?.join(', ') || '-' }}</text>
-      <button class="action-btn action-btn--danger" @click="authStore.logout()">Logout</button>
+      <text class="title">我的资料</text>
+      <text class="line">昵称：{{ authStore.profile?.nickname || '-' }}</text>
+      <text class="line">用户名：{{ authStore.profile?.username || '-' }}</text>
+      <text class="line">角色：{{ authStore.profile?.roles?.join('、') || '-' }}</text>
+      <text class="line">权限：{{ authStore.profile?.permissions?.join('、') || '-' }}</text>
+      <button class="action-btn action-btn--danger" @click="authStore.logout()">退出登录</button>
     </view>
   </view>
 </template>

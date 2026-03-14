@@ -41,7 +41,7 @@ export function request<T>(options: UniApp.RequestOptions) {
         }
 
         if (statusCode && statusCode >= 400) {
-          reject(new Error(envelope?.message || 'Request failed'))
+          reject(new Error(envelope?.message || '请求失败'))
           return
         }
 
@@ -68,7 +68,7 @@ async function refreshAccessToken() {
       success: (response) => {
         const envelope = response.data as ApiEnvelope<{ accessToken: string; refreshToken: string }>
         if (response.statusCode && response.statusCode >= 400) {
-          reject(new Error(envelope?.message || 'Refresh failed'))
+          reject(new Error(envelope?.message || '刷新令牌失败'))
           return
         }
         resolve(envelope.data)

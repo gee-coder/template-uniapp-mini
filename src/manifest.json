@@ -1,12 +1,12 @@
 {
-  "name": "Nex Miniapp",
+  "name": "Nex 小程序",
   "appid": "__UNI__NEX_TEMPLATE",
-  "description": "Shared uniapp template for startup mini-program clients.",
+  "description": "面向创业项目的小程序模板。",
   "versionName": "0.1.0",
   "versionCode": 101,
   "transformPx": false,
   "mp-weixin": {
-    "appid": "wx-template-appid",
+    "appid": "wx2fbf6b57b87b4a77",
     "setting": {
       "urlCheck": false
     }
@@ -15,4 +15,3 @@
     "appid": "tt-template-appid"
   }
 }
-
