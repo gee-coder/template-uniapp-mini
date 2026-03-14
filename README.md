@@ -5,12 +5,19 @@
 ![Vue](https://img.shields.io/badge/Vue-3.4.21-42B883?logo=vue.js&logoColor=white)
 ![Pinia](https://img.shields.io/badge/Pinia-2.1.7-F7C948)
 ![Targets](https://img.shields.io/badge/Targets-Weixin%20%7C%20Toutiao-0F766E)
+![License](https://img.shields.io/badge/License-MIT-111827)
 
 一套基于 UniApp 的小程序模板，默认对接统一 JWT 登录后端，内置登录页、首页、用户中心，并支持微信小程序与抖音小程序双目标构建，适合后续继续生长业务页面。
 
 ## 预览占位图
 
 ![Miniapp Preview](./.github/assets/preview.svg)
+
+## 治理文档
+
+- [LICENSE](./LICENSE)
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [COMMIT_CONVENTION.md](./COMMIT_CONVENTION.md)
 
 ## 1. 项目定位
 
@@ -198,4 +205,3 @@ npm run build:mp-toutiao
 - 在 `src/pages` 下新增业务页面，如订单、会员、活动、消息中心
 - 如果接入平台登录，优先扩展后端认证接口，再替换登录页流程
 - 若后续全面使用 uView，建议先统一升级并验证 UniApp / Sass / Vue 组合版本
-
