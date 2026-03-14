@@ -1,5 +1,29 @@
 import { request } from './request'
 
+export type AuthLoginType = 'username' | 'email' | 'phone'
+export type AuthRegisterType = 'email' | 'phone'
+
+export interface AuthOptions {
+  enableUsernameLogin: boolean
+  enableEmailLogin: boolean
+  enablePhoneLogin: boolean
+  enableEmailRegistration: boolean
+  enablePhoneRegistration: boolean
+}
+
+export interface LoginPayload {
+  account: string
+  password: string
+  loginType: AuthLoginType
+}
+
+export interface RegisterPayload {
+  account: string
+  password: string
+  nickname?: string
+  registerType: AuthRegisterType
+}
+
 export interface ProfileUser {
   id: number
   username: string
@@ -19,9 +43,24 @@ export interface TokenPayload {
   user: ProfileUser
 }
 
-export function loginApi(payload: { username: string; password: string }) {
+export function getAuthOptionsApi() {
+  return request<AuthOptions>({
+    url: '/auth/options',
+    method: 'GET',
+  })
+}
+
+export function loginApi(payload: LoginPayload) {
   return request<TokenPayload>({
     url: '/auth/login',
+    method: 'POST',
+    data: payload,
+  })
+}
+
+export function registerApi(payload: RegisterPayload) {
+  return request<TokenPayload>({
+    url: '/auth/register',
     method: 'POST',
     data: payload,
   })
@@ -33,4 +72,3 @@ export function profileApi() {
     method: 'GET',
   })
 }
-

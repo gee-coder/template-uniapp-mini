@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { loginApi, profileApi, type ProfileUser } from '@/api/auth'
+import { loginApi, profileApi, registerApi, type LoginPayload, type ProfileUser, type RegisterPayload } from '@/api/auth'
 import { clearAuthStorage, getAccessToken, getProfile, getRefreshToken, setAccessToken, setProfile, setRefreshToken } from '@/common/storage'
 
 export const useAuthStore = defineStore('auth', {
@@ -12,14 +12,13 @@ export const useAuthStore = defineStore('auth', {
     isLoggedIn: (state) => Boolean(state.accessToken),
   },
   actions: {
-    async login(payload: { username: string; password: string }) {
+    async login(payload: LoginPayload) {
       const result = await loginApi(payload)
-      this.accessToken = result.accessToken
-      this.refreshToken = result.refreshToken
-      this.profile = result.user
-      setAccessToken(result.accessToken)
-      setRefreshToken(result.refreshToken)
-      setProfile(result.user)
+      this.applyTokenPayload(result)
+    },
+    async register(payload: RegisterPayload) {
+      const result = await registerApi(payload)
+      this.applyTokenPayload(result)
     },
     async fetchProfile() {
       this.profile = await profileApi()
@@ -32,6 +31,13 @@ export const useAuthStore = defineStore('auth', {
       clearAuthStorage()
       uni.reLaunch({ url: '/pages/login/index' })
     },
+    applyTokenPayload(payload: { accessToken: string; refreshToken: string; user: ProfileUser }) {
+      this.accessToken = payload.accessToken
+      this.refreshToken = payload.refreshToken
+      this.profile = payload.user
+      setAccessToken(payload.accessToken)
+      setRefreshToken(payload.refreshToken)
+      setProfile(payload.user)
+    },
   },
 })
-
