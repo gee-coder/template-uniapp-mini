@@ -1,0 +1,33 @@
+"type:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - ".github/**"
+
+"area:pages":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/pages/**"
+          - "src/components/**"
+
+"area:auth":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/api/**"
+          - "src/store/**"
+          - "src/common/**"
+
+"area:platform":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "pages.json"
+          - "manifest.config.ts"
+          - "src/manifest.json"
+
+"area:infra":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "vite.config.ts"
+          - ".github/workflows/**"
+          - "package.json"
+          - "package-lock.json"

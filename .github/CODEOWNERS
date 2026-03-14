@@ -1,0 +1,14 @@
+# Default reviewers for the miniapp template
+* @gee-coder
+
+# Repository governance and release automation
+/.github/ @gee-coder
+/README.md @gee-coder
+/CHANGELOG.md @gee-coder
+/RELEASE.md @gee-coder
+
+# Core application areas
+/src/ @gee-coder
+/pages.json @gee-coder
+/manifest.config.ts @gee-coder
+/vite.config.ts @gee-coder

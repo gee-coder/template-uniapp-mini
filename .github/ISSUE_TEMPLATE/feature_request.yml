@@ -2,7 +2,8 @@ name: Feature 功能建议
 description: 提出小程序模板能力、页面结构或平台支持增强建议
 title: "[Feature] "
 labels:
-  - enhancement
+  - type:feature
+  - status:needs-triage
 body:
   - type: textarea
     id: target
@@ -25,4 +26,3 @@ body:
     id: extra
     attributes:
       label: 补充信息
-
