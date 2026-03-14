@@ -1,6 +1,16 @@
 # template-uniapp-mini
 
+![CI](https://github.com/gee-coder/template-uniapp-mini/actions/workflows/ci.yml/badge.svg)
+![UniApp](https://img.shields.io/badge/UniApp-3.x-2B9939)
+![Vue](https://img.shields.io/badge/Vue-3.4.21-42B883?logo=vue.js&logoColor=white)
+![Pinia](https://img.shields.io/badge/Pinia-2.1.7-F7C948)
+![Targets](https://img.shields.io/badge/Targets-Weixin%20%7C%20Toutiao-0F766E)
+
 一套基于 UniApp 的小程序模板，默认对接统一 JWT 登录后端，内置登录页、首页、用户中心，并支持微信小程序与抖音小程序双目标构建，适合后续继续生长业务页面。
+
+## 预览占位图
+
+![Miniapp Preview](./.github/assets/preview.svg)
 
 ## 1. 项目定位
 
@@ -22,9 +32,20 @@
 - 为保证当前版本组合可以稳定构建，页面默认先使用原生组件样式
 - 如后续你要全面接入 uView 组件，可以在确认 UniApp / Sass 组合稳定后再逐步切换
 
-## 3. 架构图
+## 3. 快速开始总览图
 
-### 3.1 系统关系图
+```mermaid
+flowchart LR
+    A["npm install"] --> B["npm run type-check"]
+    B --> C["npm run build:mp-weixin"]
+    B --> D["npm run build:mp-toutiao"]
+    C --> E["导入微信开发者工具"]
+    D --> F["导入抖音开发者工具"]
+```
+
+## 4. 架构图
+
+### 4.1 系统关系图
 
 ```mermaid
 flowchart LR
@@ -35,7 +56,7 @@ flowchart LR
     Backend --> MySQL["MySQL"]
 ```
 
-### 3.2 小程序内部结构图
+### 4.2 小程序内部结构图
 
 ```mermaid
 flowchart TD
@@ -46,7 +67,7 @@ flowchart TD
     Store --> Pages
 ```
 
-## 4. 页面结构
+## 5. 页面结构
 
 已内置页面：
 
@@ -54,7 +75,7 @@ flowchart TD
 - `pages/index/index`：首页
 - `pages/user/index`：用户中心
 
-## 5. 目录结构
+## 6. 目录结构
 
 - `src/api`：统一请求封装与认证接口
 - `src/pages`：页面目录
@@ -65,33 +86,33 @@ flowchart TD
 - `src/manifest.json`：UniApp CLI 兼容清单
 - `pages.json` / `src/pages.json`：页面与 tabbar 配置
 
-## 6. 本地开发使用方式
+## 7. 本地开发使用方式
 
-### 6.1 安装依赖
+### 7.1 安装依赖
 
 ```powershell
 npm install
 ```
 
-### 6.2 类型检查
+### 7.2 类型检查
 
 ```powershell
 npm run type-check
 ```
 
-### 6.3 微信小程序开发
+### 7.3 微信小程序开发
 
 ```powershell
 npm run dev:mp-weixin
 ```
 
-### 6.4 抖音小程序开发
+### 7.4 抖音小程序开发
 
 ```powershell
 npm run dev:mp-toutiao
 ```
 
-## 7. 登录说明
+## 8. 登录说明
 
 默认登录方式：
 
@@ -101,9 +122,20 @@ npm run dev:mp-toutiao
 
 当前模板故意没有直接接微信 / 抖音平台 `code -> token` 流程，目的是先保证多端统一底座可运行，后续再在认证服务层扩展平台登录。
 
-## 8. 构建与发布方式
+## 9. 构建与发布方式
 
-### 8.1 微信小程序构建
+### 9.1 发布总览图
+
+```mermaid
+flowchart LR
+    Build["本地构建"] --> Dist["dist/build"]
+    Dist --> WX["微信开发者工具"]
+    Dist --> TT["抖音开发者工具"]
+    WX --> Publish["上传并发布"]
+    TT --> Publish
+```
+
+### 9.2 微信小程序构建
 
 ```powershell
 npm run build:mp-weixin
@@ -115,7 +147,7 @@ npm run build:mp-weixin
 
 然后使用微信开发者工具导入该目录即可继续调试与上传。
 
-### 8.2 抖音小程序构建
+### 9.3 抖音小程序构建
 
 ```powershell
 npm run build:mp-toutiao
@@ -127,13 +159,13 @@ npm run build:mp-toutiao
 
 然后使用抖音开发者工具导入该目录即可继续调试与上传。
 
-### 8.3 线上发布建议
+### 9.4 线上发布建议
 
 - 小程序前端本身不需要传统服务器部署
 - 需要保证后端 API、域名白名单、合法请求域名配置正确
 - 上线前把 `src/common/constants.ts` 中的 API 地址替换为正式环境地址
 
-## 9. 常用命令
+## 10. 常用命令
 
 ```powershell
 npm run type-check
@@ -143,7 +175,7 @@ npm run dev:mp-toutiao
 npm run build:mp-toutiao
 ```
 
-## 10. 兼容说明
+## 11. 兼容说明
 
 当前仓库包含以下兼容文件：
 
@@ -153,7 +185,7 @@ npm run build:mp-toutiao
 
 它们的作用是让当前模板在本地 CLI 环境下稳定通过构建，不影响你后续按业务继续开发。
 
-## 11. 验证结果
+## 12. 验证结果
 
 当前模板已实际通过：
 
@@ -161,7 +193,7 @@ npm run build:mp-toutiao
 - `npm run build:mp-weixin`
 - `npm run build:mp-toutiao`
 
-## 12. 扩展建议
+## 13. 扩展建议
 
 - 在 `src/pages` 下新增业务页面，如订单、会员、活动、消息中心
 - 如果接入平台登录，优先扩展后端认证接口，再替换登录页流程
