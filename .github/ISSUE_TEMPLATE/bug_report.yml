@@ -1,0 +1,45 @@
+name: Bug 报告
+description: 报告小程序模板中的构建、登录、页面或兼容性问题
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 执行哪个命令
+        2. 打开哪个页面
+        3. 出现什么异常
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息
+      placeholder: |
+        OS:
+        Node:
+        npm:
+        目标平台:
+        开发者工具版本:
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图或补充信息
+
