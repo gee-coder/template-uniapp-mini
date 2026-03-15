@@ -14,7 +14,7 @@
     "@dcloudio/uni-app": "3.0.0-4080720251210001",
     "pinia": "3.0.4",
     "uview-plus": "3.7.13",
-    "vue": "3.4.21"
+    "vue": "3.5.30"
   },
   "devDependencies": {
     "@dcloudio/uni-mp-toutiao": "^3.0.0-4080720251210001",
