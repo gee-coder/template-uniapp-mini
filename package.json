@@ -10,7 +10,7 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@dcloudio/types": "3.4.19",
+    "@dcloudio/types": "3.4.29",
     "@dcloudio/uni-app": "3.0.0-4080720251210001",
     "pinia": "2.1.7",
     "uview-plus": "3.7.13",
