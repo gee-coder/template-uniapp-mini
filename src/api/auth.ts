@@ -9,13 +9,17 @@ export interface AuthOptions {
   enablePhoneLogin: boolean
   enableEmailRegistration: boolean
   enablePhoneRegistration: boolean
+  enableTwoFactor: boolean
 }
 
 export interface LoginPayload {
   account: string
-  password: string
+  password?: string
   loginType: AuthLoginType
-  smsCode?: string
+  verificationCode?: string
+  captchaId?: string
+  captchaCode?: string
+  twoFactorCode?: string
 }
 
 export interface RegisterPayload {
@@ -28,12 +32,36 @@ export interface RegisterPayload {
 
 export interface SendSMSCodePayload {
   phone: string
-  purpose: 'login' | 'register'
+  purpose: 'login' | 'register' | 'two_factor'
+}
+
+export interface SendEmailCodePayload {
+  email: string
+  purpose: 'login' | 'two_factor'
 }
 
 export interface SMSCodeResponse {
   provider: string
   expiresIn: number
+  cooldownIn: number
+  debugCode?: string
+}
+
+export interface CaptchaPayload {
+  captchaId: string
+  imageData: string
+  expiresIn: number
+}
+
+export interface TwoFactorCodePayload {
+  account: string
+  loginType?: 'username'
+}
+
+export interface TwoFactorCodeResponse {
+  channel: 'email' | 'phone'
+  target: string
+  provider: string
   cooldownIn: number
   debugCode?: string
 }
@@ -72,6 +100,13 @@ export function loginApi(payload: LoginPayload) {
   })
 }
 
+export function getCaptchaApi() {
+  return request<CaptchaPayload>({
+    url: '/auth/captcha',
+    method: 'GET',
+  })
+}
+
 export function registerApi(payload: RegisterPayload) {
   return request<TokenPayload>({
     url: '/auth/register',
@@ -83,6 +118,22 @@ export function registerApi(payload: RegisterPayload) {
 export function sendSMSCodeApi(payload: SendSMSCodePayload) {
   return request<SMSCodeResponse>({
     url: '/auth/sms-codes',
+    method: 'POST',
+    data: payload,
+  })
+}
+
+export function sendEmailCodeApi(payload: SendEmailCodePayload) {
+  return request<SMSCodeResponse>({
+    url: '/auth/email-codes',
+    method: 'POST',
+    data: payload,
+  })
+}
+
+export function sendTwoFactorCodeApi(payload: TwoFactorCodePayload) {
+  return request<TwoFactorCodeResponse>({
+    url: '/auth/two-factor-codes',
     method: 'POST',
     data: payload,
   })

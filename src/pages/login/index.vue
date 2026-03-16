@@ -2,7 +2,7 @@
   <view class="page-shell login-page">
     <view class="card login-card">
       <text class="eyebrow">统一认证模板</text>
-      <text class="title">支持用户名、邮箱、手机号登录注册，并为手机号接入短信验证码。</text>
+      <text class="title">支持账号、邮箱、手机号三种登录方式，并按安全策略动态切换验证码与双因子校验。</text>
       <text class="hint">接口地址：{{ apiBaseUrl }}</text>
       <text v-if="deviceHint" class="hint hint--warning">{{ deviceHint }}</text>
 
@@ -30,26 +30,52 @@
         </view>
 
         <view class="field">
-          <text>{{ loginLabel }}</text>
+          <text>{{ loginAccountLabel }}</text>
           <input v-model="loginForm.account" :placeholder="loginPlaceholder" />
         </view>
-        <view class="field">
-          <text>密码</text>
-          <input v-model="loginForm.password" password placeholder="至少 6 位" />
+
+        <view v-if="loginNeedsPassword" class="field">
+          <text>{{ loginPasswordLabel }}</text>
+          <input v-model="loginForm.password" password :placeholder="loginPasswordPlaceholder" />
         </view>
-        <view v-if="loginNeedsSMS" class="field">
-          <text>短信验证码</text>
-          <view class="sms-row">
-            <input v-model="loginForm.smsCode" placeholder="请输入短信验证码" maxlength="8" />
-            <button class="sms-btn" :disabled="loading || loginCooldown > 0" @click="sendSMSCode('login')">
-              {{ loginCooldown > 0 ? `${loginCooldown}s` : '发送验证码' }}
+
+        <view v-if="loginNeedsVerificationCode" class="field">
+          <text>{{ loginCodeLabel }}</text>
+          <view class="code-row">
+            <input v-model="loginForm.verificationCode" :placeholder="loginCodePlaceholder" maxlength="8" />
+            <button class="code-btn" :disabled="loading || loginCodeCooldown > 0" @click="sendLoginCode">
+              {{ loginCodeCooldown > 0 ? `${loginCodeCooldown}s` : '发送验证码' }}
             </button>
           </view>
         </view>
+
+        <view v-if="loginNeedsCaptcha" class="field">
+          <text>图形验证码</text>
+          <view class="code-row">
+            <input v-model="loginForm.captchaCode" placeholder="请输入图中的字符" maxlength="8" />
+            <button class="captcha-btn" :disabled="captchaLoading" @click="refreshLoginCaptcha">
+              <image v-if="loginCaptcha.imageData" class="captcha-image" :src="loginCaptcha.imageData" mode="aspectFill" />
+              <text v-else>{{ captchaLoading ? '加载中...' : '点击刷新' }}</text>
+            </button>
+          </view>
+          <text class="hint">邮箱和手机号登录始终需要图形验证码；账号登录输错 2 次后，第 3 次开始需要。</text>
+        </view>
+
+        <view v-if="loginNeedsTwoFactorCode" class="field">
+          <text>双因子验证码</text>
+          <view class="code-row">
+            <input v-model="loginForm.twoFactorCode" placeholder="请输入第二重验证码" maxlength="8" />
+            <button class="code-btn" :disabled="loading || twoFactorCooldown > 0" @click="sendTwoFactorCode">
+              {{ twoFactorCooldown > 0 ? `${twoFactorCooldown}s` : '发送验证码' }}
+            </button>
+          </view>
+          <text class="hint">{{ twoFactorHint }}</text>
+        </view>
+
         <button class="action-btn" :disabled="loading" @click="submitLogin">
           {{ loading ? '登录中...' : '立即登录' }}
         </button>
-        <text class="hint">{{ loginNeedsSMS ? '手机号登录需要同时校验密码和短信验证码。' : '演示账号：admin / Admin123!' }}</text>
+        <text class="hint">{{ loginHint }}</text>
       </view>
 
       <view v-else class="panel">
@@ -65,7 +91,7 @@
         </view>
 
         <view class="field">
-          <text>{{ registerLabel }}</text>
+          <text>{{ registerAccountLabel }}</text>
           <input v-model="registerForm.account" :placeholder="registerPlaceholder" />
         </view>
         <view class="field">
@@ -74,9 +100,9 @@
         </view>
         <view v-if="registerNeedsSMS" class="field">
           <text>短信验证码</text>
-          <view class="sms-row">
+          <view class="code-row">
             <input v-model="registerForm.smsCode" placeholder="请输入短信验证码" maxlength="8" />
-            <button class="sms-btn" :disabled="loading || registerCooldown > 0" @click="sendSMSCode('register')">
+            <button class="code-btn" :disabled="loading || registerCooldown > 0" @click="sendRegisterSMSCode">
               {{ registerCooldown > 0 ? `${registerCooldown}s` : '发送验证码' }}
             </button>
           </view>
@@ -92,9 +118,7 @@
         <button class="action-btn" :disabled="loading" @click="submitRegister">
           {{ loading ? '注册中...' : '创建账号' }}
         </button>
-        <text class="hint">
-          {{ registerNeedsSMS ? '手机号注册需要先完成短信验证码校验。' : '注册入口会根据 /auth/options 配置动态变化。' }}
-        </text>
+        <text class="hint">{{ registerHint }}</text>
       </view>
     </view>
   </view>
@@ -105,17 +129,25 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { API_BASE_URL, API_BASE_URL_DEVICE_HINT } from '@/common/constants'
 import {
   getAuthOptionsApi,
+  getCaptchaApi,
+  sendEmailCodeApi,
   sendSMSCodeApi,
+  sendTwoFactorCodeApi,
   type AuthLoginType,
   type AuthOptions,
   type AuthRegisterType,
+  type SMSCodeResponse,
 } from '@/api/auth'
 import { useAuthStore } from '@/store/auth'
 
 const authStore = useAuthStore()
 const loading = ref(false)
+const captchaLoading = ref(false)
 const apiBaseUrl = API_BASE_URL
 const deviceHint = API_BASE_URL_DEVICE_HINT
+
+const phonePattern = /^\+?[0-9]{6,20}$/
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const fallbackOptions: AuthOptions = {
   enableUsernameLogin: true,
@@ -123,19 +155,31 @@ const fallbackOptions: AuthOptions = {
   enablePhoneLogin: true,
   enableEmailRegistration: true,
   enablePhoneRegistration: true,
+  enableTwoFactor: false,
 }
 
 const options = ref<AuthOptions>(fallbackOptions)
 const mode = ref<'login' | 'register'>('login')
 const loginType = ref<AuthLoginType>('username')
 const registerType = ref<AuthRegisterType>('email')
-const loginCooldown = ref(0)
+const loginCodeCooldown = ref(0)
 const registerCooldown = ref(0)
+const twoFactorCooldown = ref(0)
+const usernameFailureCount = ref(0)
+const forceUsernameCaptcha = ref(false)
+const twoFactorTarget = ref('')
 
 const loginForm = reactive({
   account: 'admin',
   password: 'Admin123!',
-  smsCode: '',
+  verificationCode: '',
+  captchaCode: '',
+  twoFactorCode: '',
+})
+
+const loginCaptcha = reactive({
+  captchaId: '',
+  imageData: '',
 })
 
 const registerForm = reactive({
@@ -146,12 +190,13 @@ const registerForm = reactive({
   smsCode: '',
 })
 
-let loginTimer: ReturnType<typeof setInterval> | null = null
+let loginCodeTimer: ReturnType<typeof setInterval> | null = null
 let registerTimer: ReturnType<typeof setInterval> | null = null
+let twoFactorTimer: ReturnType<typeof setInterval> | null = null
 
 const loginTabs = computed(() => {
   const tabs: Array<{ value: AuthLoginType; label: string }> = []
-  if (options.value.enableUsernameLogin) tabs.push({ value: 'username', label: '用户名' })
+  if (options.value.enableUsernameLogin) tabs.push({ value: 'username', label: '账号' })
   if (options.value.enableEmailLogin) tabs.push({ value: 'email', label: '邮箱' })
   if (options.value.enablePhoneLogin) tabs.push({ value: 'phone', label: '手机号' })
   return tabs
@@ -164,14 +209,21 @@ const registerTabs = computed(() => {
   return tabs
 })
 
-const loginLabel = computed(() => {
+const loginNeedsVerificationCode = computed(() => loginType.value === 'email' || loginType.value === 'phone')
+const loginNeedsPassword = computed(() => loginType.value === 'username' || options.value.enableTwoFactor)
+const loginNeedsTwoFactorCode = computed(() => loginType.value === 'username' && options.value.enableTwoFactor)
+const usernameNeedsCaptcha = computed(() => loginType.value === 'username' && (forceUsernameCaptcha.value || usernameFailureCount.value >= 2))
+const loginNeedsCaptcha = computed(() => loginType.value !== 'username' || usernameNeedsCaptcha.value)
+const registerNeedsSMS = computed(() => registerType.value === 'phone')
+
+const loginAccountLabel = computed(() => {
   switch (loginType.value) {
     case 'email':
       return '邮箱'
     case 'phone':
       return '手机号'
     default:
-      return '用户名'
+      return '账号'
   }
 })
 
@@ -186,10 +238,28 @@ const loginPlaceholder = computed(() => {
   }
 })
 
-const registerLabel = computed(() => (registerType.value === 'email' ? '邮箱' : '手机号'))
+const loginPasswordLabel = computed(() => (loginType.value === 'username' ? '密码' : '第二重密码'))
+const loginPasswordPlaceholder = computed(() => (loginType.value === 'username' ? '请输入密码' : '请输入密码完成第二重认证'))
+const loginCodeLabel = computed(() => (loginType.value === 'email' ? '邮箱验证码' : '短信验证码'))
+const loginCodePlaceholder = computed(() => (loginType.value === 'email' ? '请输入邮箱验证码' : '请输入短信验证码'))
+const loginHint = computed(() => {
+  if (loginType.value === 'username') {
+    return options.value.enableTwoFactor
+      ? '账号登录先验证密码，再验证绑定手机号或邮箱收到的双因子验证码。'
+      : '账号登录默认只需要密码，连续输错 2 次后会要求图形验证码。'
+  }
+  return options.value.enableTwoFactor
+    ? '邮箱和手机号登录先校验验证码与图形验证码，再输入密码完成第二重认证。'
+    : '邮箱和手机号登录只需要验证码和图形验证码。'
+})
+const twoFactorHint = computed(() =>
+  twoFactorTarget.value ? `双因子验证码将发送至 ${twoFactorTarget.value}。` : '向当前账号绑定的手机号或邮箱发送第二重验证码。',
+)
+const registerAccountLabel = computed(() => (registerType.value === 'email' ? '邮箱' : '手机号'))
 const registerPlaceholder = computed(() => (registerType.value === 'email' ? 'name@example.com' : '18800000000'))
-const loginNeedsSMS = computed(() => loginType.value === 'phone')
-const registerNeedsSMS = computed(() => registerType.value === 'phone')
+const registerHint = computed(() =>
+  registerNeedsSMS.value ? '手机号注册需要先完成短信验证码校验。' : '注册入口会根据 /auth/options 配置动态变化。',
+)
 
 watch(loginTabs, (tabs) => {
   if (!tabs.some((tab) => tab.value === loginType.value) && tabs[0]) {
@@ -207,12 +277,40 @@ watch(registerTabs, (tabs) => {
   }
 }, { immediate: true })
 
-watch(loginNeedsSMS, (value) => {
-  if (!value) {
-    loginForm.smsCode = ''
-    clearCooldown('login')
+watch(loginType, (nextType) => {
+  loginForm.verificationCode = ''
+  loginForm.captchaCode = ''
+  loginForm.twoFactorCode = ''
+  twoFactorTarget.value = ''
+  clearCooldown('loginCode')
+  clearCooldown('twoFactor')
+
+  if (nextType !== 'username') {
+    usernameFailureCount.value = 0
+    forceUsernameCaptcha.value = false
+    void ensureLoginCaptcha(true)
+  } else if (!usernameNeedsCaptcha.value) {
+    clearLoginCaptcha()
+  }
+}, { immediate: true })
+
+watch(() => loginForm.account, () => {
+  if (loginType.value === 'username') {
+    usernameFailureCount.value = 0
+    forceUsernameCaptcha.value = false
+    if (!usernameNeedsCaptcha.value) {
+      clearLoginCaptcha()
+    }
   }
 })
+
+watch(loginNeedsCaptcha, (value) => {
+  if (value) {
+    void ensureLoginCaptcha()
+  } else {
+    clearLoginCaptcha()
+  }
+}, { immediate: true })
 
 watch(registerNeedsSMS, (value) => {
   if (!value) {
@@ -233,17 +331,31 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  clearCooldown('login')
+  clearCooldown('loginCode')
   clearCooldown('register')
+  clearCooldown('twoFactor')
 })
 
 async function submitLogin() {
-  if (!loginForm.account || !loginForm.password) {
-    uni.showToast({ title: '请先填写完整账号和密码', icon: 'none' })
+  if (!loginForm.account.trim()) {
+    showTextToast('请先输入账号信息')
     return
   }
-  if (loginNeedsSMS.value && !loginForm.smsCode.trim()) {
-    uni.showToast({ title: '请先输入短信验证码', icon: 'none' })
+  if (loginNeedsPassword.value && !loginForm.password.trim()) {
+    showTextToast('请先输入密码')
+    return
+  }
+  if (loginNeedsVerificationCode.value && !loginForm.verificationCode.trim()) {
+    showTextToast(loginType.value === 'email' ? '请先输入邮箱验证码' : '请先输入短信验证码')
+    return
+  }
+  if (loginNeedsCaptcha.value && (!loginCaptcha.captchaId || !loginForm.captchaCode.trim())) {
+    await ensureLoginCaptcha(true)
+    showTextToast('请先完成图形验证码')
+    return
+  }
+  if (loginNeedsTwoFactorCode.value && !loginForm.twoFactorCode.trim()) {
+    showTextToast('请先输入双因子验证码')
     return
   }
 
@@ -251,16 +363,19 @@ async function submitLogin() {
   try {
     await authStore.login({
       account: loginForm.account.trim(),
-      password: loginForm.password,
+      password: loginNeedsPassword.value ? loginForm.password : undefined,
       loginType: loginType.value,
-      smsCode: loginNeedsSMS.value ? loginForm.smsCode.trim() : undefined,
+      verificationCode: loginNeedsVerificationCode.value ? loginForm.verificationCode.trim() : undefined,
+      captchaId: loginNeedsCaptcha.value ? loginCaptcha.captchaId : undefined,
+      captchaCode: loginNeedsCaptcha.value ? loginForm.captchaCode.trim() : undefined,
+      twoFactorCode: loginNeedsTwoFactorCode.value ? loginForm.twoFactorCode.trim() : undefined,
     })
+    resetUsernameProtection()
     uni.switchTab({ url: '/pages/index/index' })
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : '登录失败',
-      icon: 'none',
-    })
+    const message = error instanceof Error ? error.message : '登录失败'
+    await handleLoginFailure(message)
+    showTextToast(message)
   } finally {
     loading.value = false
   }
@@ -268,19 +383,19 @@ async function submitLogin() {
 
 async function submitRegister() {
   if (!registerTabs.value.length) {
-    uni.showToast({ title: '当前没有开放注册方式', icon: 'none' })
+    showTextToast('当前没有开放注册方式')
     return
   }
-  if (!registerForm.account || !registerForm.password) {
-    uni.showToast({ title: '请先填写完整注册信息', icon: 'none' })
+  if (!registerForm.account.trim() || !registerForm.password) {
+    showTextToast('请先填写完整注册信息')
     return
   }
   if (registerForm.password !== registerForm.confirmPassword) {
-    uni.showToast({ title: '两次输入的密码不一致', icon: 'none' })
+    showTextToast('两次输入的密码不一致')
     return
   }
   if (registerNeedsSMS.value && !registerForm.smsCode.trim()) {
-    uni.showToast({ title: '请先输入短信验证码', icon: 'none' })
+    showTextToast('请先输入短信验证码')
     return
   }
 
@@ -295,47 +410,173 @@ async function submitRegister() {
     })
     uni.switchTab({ url: '/pages/index/index' })
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : '注册失败',
-      icon: 'none',
-    })
+    showTextToast(error instanceof Error ? error.message : '注册失败')
   } finally {
     loading.value = false
   }
 }
 
-async function sendSMSCode(kind: 'login' | 'register') {
-  const phone = kind === 'login' ? normalizePhone(loginForm.account) : normalizePhone(registerForm.account)
-  if (!phone) {
-    uni.showToast({ title: '请先输入有效手机号', icon: 'none' })
+async function sendLoginCode() {
+  if (loginType.value === 'email') {
+    if (!emailPattern.test(loginForm.account.trim().toLowerCase())) {
+      showTextToast('请先输入有效邮箱')
+      return
+    }
+    await sendEmailLoginCode()
+    return
+  }
+
+  if (loginType.value === 'phone') {
+    const phone = normalizePhone(loginForm.account)
+    if (!phone) {
+      showTextToast('请先输入有效手机号')
+      return
+    }
+    await sendPhoneLoginCode(phone)
+  }
+}
+
+async function sendPhoneLoginCode(phone: string) {
+  try {
+    const payload = await sendSMSCodeApi({ phone, purpose: 'login' })
+    applyLoginDebugCode(payload)
+    startCooldown('loginCode', payload.cooldownIn || 60)
+    showTextToast(buildCodeMessage(payload, '短信验证码'))
+  } catch (error) {
+    showTextToast(error instanceof Error ? error.message : '验证码发送失败')
+  }
+}
+
+async function sendEmailLoginCode() {
+  try {
+    const payload = await sendEmailCodeApi({
+      email: loginForm.account.trim().toLowerCase(),
+      purpose: 'login',
+    })
+    applyLoginDebugCode(payload)
+    startCooldown('loginCode', payload.cooldownIn || 60)
+    showTextToast(buildCodeMessage(payload, '邮箱验证码'))
+  } catch (error) {
+    showTextToast(error instanceof Error ? error.message : '验证码发送失败')
+  }
+}
+
+async function sendTwoFactorCode() {
+  if (loginType.value !== 'username' || !loginForm.account.trim()) {
+    showTextToast('请先输入账号')
     return
   }
 
   try {
-    const payload = await sendSMSCodeApi({ phone, purpose: kind })
-    if (kind === 'login' && payload.debugCode) {
-      loginForm.smsCode = payload.debugCode
-    }
-    if (kind === 'register' && payload.debugCode) {
-      registerForm.smsCode = payload.debugCode
-    }
-    startCooldown(kind, payload.cooldownIn || 60)
-    uni.showToast({
-      title: payload.debugCode ? `验证码：${payload.debugCode}` : '验证码已发送',
-      icon: 'none',
-      duration: 2500,
+    const payload = await sendTwoFactorCodeApi({
+      account: loginForm.account.trim(),
+      loginType: 'username',
     })
+    twoFactorTarget.value = payload.target
+    if (payload.debugCode) {
+      loginForm.twoFactorCode = payload.debugCode
+    }
+    startCooldown('twoFactor', payload.cooldownIn || 60)
+    showTextToast(payload.debugCode ? `双因子验证码：${payload.debugCode}` : `双因子验证码已发送至 ${payload.target}`)
   } catch (error) {
-    uni.showToast({
-      title: error instanceof Error ? error.message : '验证码发送失败',
-      icon: 'none',
-    })
+    showTextToast(error instanceof Error ? error.message : '双因子验证码发送失败')
   }
 }
 
-function startCooldown(kind: 'login' | 'register', seconds: number) {
+async function sendRegisterSMSCode() {
+  const phone = normalizePhone(registerForm.account)
+  if (!phone) {
+    showTextToast('请先输入有效手机号')
+    return
+  }
+
+  try {
+    const payload = await sendSMSCodeApi({ phone, purpose: 'register' })
+    if (payload.debugCode) {
+      registerForm.smsCode = payload.debugCode
+    }
+    startCooldown('register', payload.cooldownIn || 60)
+    showTextToast(buildCodeMessage(payload, '短信验证码'))
+  } catch (error) {
+    showTextToast(error instanceof Error ? error.message : '验证码发送失败')
+  }
+}
+
+async function ensureLoginCaptcha(force = false) {
+  if (!force && loginCaptcha.captchaId && loginCaptcha.imageData) {
+    return
+  }
+  await refreshLoginCaptcha()
+}
+
+async function refreshLoginCaptcha() {
+  captchaLoading.value = true
+  try {
+    const payload = await getCaptchaApi()
+    loginCaptcha.captchaId = payload.captchaId
+    loginCaptcha.imageData = payload.imageData
+    loginForm.captchaCode = ''
+  } catch (error) {
+    showTextToast(error instanceof Error ? error.message : '图形验证码加载失败')
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+function clearLoginCaptcha() {
+  loginCaptcha.captchaId = ''
+  loginCaptcha.imageData = ''
+  loginForm.captchaCode = ''
+}
+
+async function handleLoginFailure(message: string) {
+  if (loginType.value !== 'username') {
+    if (loginNeedsCaptcha.value) {
+      await refreshLoginCaptcha()
+    }
+    return
+  }
+
+  const normalized = message.toLowerCase()
+  if (normalized.includes('captcha')) {
+    forceUsernameCaptcha.value = true
+    await refreshLoginCaptcha()
+    return
+  }
+  if (normalized.includes('two-factor') || normalized.includes('second-factor')) {
+    return
+  }
+
+  usernameFailureCount.value += 1
+  if (usernameFailureCount.value >= 2) {
+    forceUsernameCaptcha.value = true
+    await refreshLoginCaptcha()
+  }
+}
+
+function resetUsernameProtection() {
+  usernameFailureCount.value = 0
+  forceUsernameCaptcha.value = false
+  clearLoginCaptcha()
+  twoFactorTarget.value = ''
+}
+
+function applyLoginDebugCode(payload: SMSCodeResponse) {
+  if (payload.debugCode) {
+    loginForm.verificationCode = payload.debugCode
+  }
+}
+
+function buildCodeMessage(payload: SMSCodeResponse, label: string) {
+  if (payload.debugCode) {
+    return `${label}：${payload.debugCode}`
+  }
+  return `${label}已发送`
+}
+
+function startCooldown(kind: 'loginCode' | 'register' | 'twoFactor', seconds: number) {
   clearCooldown(kind)
-  const target = kind === 'login' ? loginCooldown : registerCooldown
+  const target = kind === 'loginCode' ? loginCodeCooldown : kind === 'register' ? registerCooldown : twoFactorCooldown
   target.value = Math.max(0, Math.round(seconds))
 
   const timer = setInterval(() => {
@@ -346,29 +587,44 @@ function startCooldown(kind: 'login' | 'register', seconds: number) {
     target.value -= 1
   }, 1000)
 
-  if (kind === 'login') {
-    loginTimer = timer
-  } else {
+  if (kind === 'loginCode') {
+    loginCodeTimer = timer
+  } else if (kind === 'register') {
     registerTimer = timer
+  } else {
+    twoFactorTimer = timer
   }
 }
 
-function clearCooldown(kind: 'login' | 'register') {
-  if (kind === 'login' && loginTimer) {
-    clearInterval(loginTimer)
-    loginTimer = null
-    loginCooldown.value = 0
+function clearCooldown(kind: 'loginCode' | 'register' | 'twoFactor') {
+  if (kind === 'loginCode' && loginCodeTimer) {
+    clearInterval(loginCodeTimer)
+    loginCodeTimer = null
+    loginCodeCooldown.value = 0
   }
   if (kind === 'register' && registerTimer) {
     clearInterval(registerTimer)
     registerTimer = null
     registerCooldown.value = 0
   }
+  if (kind === 'twoFactor' && twoFactorTimer) {
+    clearInterval(twoFactorTimer)
+    twoFactorTimer = null
+    twoFactorCooldown.value = 0
+  }
 }
 
 function normalizePhone(value: string) {
   const normalized = value.trim().replace(/[()\s-]/g, '')
-  return /^\+?[0-9]{6,20}$/.test(normalized) ? normalized : ''
+  return phonePattern.test(normalized) ? normalized : ''
+}
+
+function showTextToast(title: string) {
+  uni.showToast({
+    title,
+    icon: 'none',
+    duration: 2500,
+  })
 }
 </script>
 
@@ -415,13 +671,19 @@ function normalizePhone(value: string) {
 }
 
 .mode-btn,
-.channel-btn {
+.channel-btn,
+.code-btn,
+.captcha-btn {
   margin: 0;
+  border: none;
+}
+
+.mode-btn,
+.channel-btn {
   padding: 0 28rpx;
   min-width: 0;
   height: 72rpx;
   border-radius: 999rpx;
-  border: none;
   background: rgba(15, 23, 42, 0.08);
   color: #475569;
   font-size: 26rpx;
@@ -430,7 +692,9 @@ function normalizePhone(value: string) {
 
 .mode-btn::after,
 .channel-btn::after,
-.sms-btn::after {
+.code-btn::after,
+.captcha-btn::after,
+.action-btn::after {
   border: none;
 }
 
@@ -456,16 +720,14 @@ function normalizePhone(value: string) {
   background: rgba(244, 247, 252, 0.92);
 }
 
-.sms-row {
+.code-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16rpx;
 }
 
-.sms-btn {
-  margin: 0;
+.code-btn {
   padding: 0 24rpx;
-  border: none;
   border-radius: 24rpx;
   background: rgba(15, 118, 110, 0.12);
   color: #0f766e;
@@ -473,7 +735,37 @@ function normalizePhone(value: string) {
   line-height: 88rpx;
 }
 
-.sms-btn[disabled] {
+.captcha-btn {
+  width: 220rpx;
+  height: 88rpx;
+  border-radius: 24rpx;
+  background: #f8fbff;
+  border: 2rpx solid #d7e3f4;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  font-size: 24rpx;
+}
+
+.captcha-image {
+  width: 100%;
+  height: 100%;
+}
+
+.code-btn[disabled],
+.captcha-btn[disabled],
+.action-btn[disabled] {
   opacity: 0.55;
+}
+
+.action-btn {
+  margin: 0;
+  height: 88rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #ffffff;
+  font-size: 28rpx;
+  line-height: 88rpx;
 }
 </style>
