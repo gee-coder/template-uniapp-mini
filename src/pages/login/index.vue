@@ -2,7 +2,7 @@
   <view class="page-shell login-page">
     <view class="card login-card">
       <text class="eyebrow">统一认证模板</text>
-      <text class="title">支持账号、邮箱、手机号三种登录方式，并按安全策略动态切换验证码与双因子校验。</text>
+      <text class="title">支持账号、邮箱、手机号登录注册，并按安全策略动态切换图形验证码与双因子认证。</text>
       <text class="hint">接口地址：{{ apiBaseUrl }}</text>
       <text v-if="deviceHint" class="hint hint--warning">{{ deviceHint }}</text>
 
@@ -94,27 +94,49 @@
           <text>{{ registerAccountLabel }}</text>
           <input v-model="registerForm.account" :placeholder="registerPlaceholder" />
         </view>
+
         <view class="field">
           <text>昵称</text>
           <input v-model="registerForm.nickname" placeholder="可选，不填则自动生成" />
         </view>
-        <view v-if="registerNeedsSMS" class="field">
-          <text>短信验证码</text>
+
+        <view v-if="registerNeedsVerificationCode" class="field">
+          <text>{{ registerCodeLabel }}</text>
           <view class="code-row">
-            <input v-model="registerForm.smsCode" placeholder="请输入短信验证码" maxlength="8" />
-            <button class="code-btn" :disabled="loading || registerCooldown > 0" @click="sendRegisterSMSCode">
+            <input v-model="registerForm.verificationCode" :placeholder="registerCodePlaceholder" maxlength="8" />
+            <button class="code-btn" :disabled="loading || registerCooldown > 0" @click="sendRegisterCode">
               {{ registerCooldown > 0 ? `${registerCooldown}s` : '发送验证码' }}
             </button>
           </view>
         </view>
+
+        <view v-if="registerNeedsCaptcha" class="field">
+          <text>图形验证码</text>
+          <view class="code-row">
+            <input v-model="registerForm.captchaCode" placeholder="请输入图中的字符" maxlength="8" />
+            <button class="captcha-btn" :disabled="captchaLoading" @click="refreshRegisterCaptcha">
+              <image
+                v-if="registerCaptcha.imageData"
+                class="captcha-image"
+                :src="registerCaptcha.imageData"
+                mode="aspectFill"
+              />
+              <text v-else>{{ captchaLoading ? '加载中...' : '点击刷新' }}</text>
+            </button>
+          </view>
+          <text class="hint">注册时也需要完成图形验证码，用来确认当前请求来自真实用户。</text>
+        </view>
+
         <view class="field">
           <text>密码</text>
           <input v-model="registerForm.password" password placeholder="至少 6 位" />
         </view>
+
         <view class="field">
           <text>确认密码</text>
           <input v-model="registerForm.confirmPassword" password placeholder="再次输入密码" />
         </view>
+
         <button class="action-btn" :disabled="loading" @click="submitRegister">
           {{ loading ? '注册中...' : '创建账号' }}
         </button>
@@ -187,7 +209,14 @@ const registerForm = reactive({
   nickname: '',
   password: '',
   confirmPassword: '',
+  verificationCode: '',
+  captchaCode: '',
   smsCode: '',
+})
+
+const registerCaptcha = reactive({
+  captchaId: '',
+  imageData: '',
 })
 
 let loginCodeTimer: ReturnType<typeof setInterval> | null = null
@@ -214,7 +243,8 @@ const loginNeedsPassword = computed(() => loginType.value === 'username' || opti
 const loginNeedsTwoFactorCode = computed(() => loginType.value === 'username' && options.value.enableTwoFactor)
 const usernameNeedsCaptcha = computed(() => loginType.value === 'username' && (forceUsernameCaptcha.value || usernameFailureCount.value >= 2))
 const loginNeedsCaptcha = computed(() => loginType.value !== 'username' || usernameNeedsCaptcha.value)
-const registerNeedsSMS = computed(() => registerType.value === 'phone')
+const registerNeedsVerificationCode = computed(() => registerType.value === 'email' || registerType.value === 'phone')
+const registerNeedsCaptcha = computed(() => registerNeedsVerificationCode.value)
 
 const loginAccountLabel = computed(() => {
   switch (loginType.value) {
@@ -255,10 +285,15 @@ const loginHint = computed(() => {
 const twoFactorHint = computed(() =>
   twoFactorTarget.value ? `双因子验证码将发送至 ${twoFactorTarget.value}。` : '向当前账号绑定的手机号或邮箱发送第二重验证码。',
 )
+
 const registerAccountLabel = computed(() => (registerType.value === 'email' ? '邮箱' : '手机号'))
 const registerPlaceholder = computed(() => (registerType.value === 'email' ? 'name@example.com' : '18800000000'))
+const registerCodeLabel = computed(() => (registerType.value === 'email' ? '邮箱验证码' : '短信验证码'))
+const registerCodePlaceholder = computed(() => (registerType.value === 'email' ? '请输入邮箱验证码' : '请输入短信验证码'))
 const registerHint = computed(() =>
-  registerNeedsSMS.value ? '手机号注册需要先完成短信验证码校验。' : '注册入口会根据 /auth/options 配置动态变化。',
+  registerType.value === 'email'
+    ? '邮箱注册需要邮箱验证码、图形验证码，以及你要设置的登录密码。'
+    : '手机号注册需要短信验证码、图形验证码，以及你要设置的登录密码。',
 )
 
 watch(loginTabs, (tabs) => {
@@ -312,21 +347,27 @@ watch(loginNeedsCaptcha, (value) => {
   }
 }, { immediate: true })
 
-watch(registerNeedsSMS, (value) => {
-  if (!value) {
-    registerForm.smsCode = ''
-    clearCooldown('register')
+watch(registerType, () => {
+  registerForm.verificationCode = ''
+  registerForm.captchaCode = ''
+  registerForm.smsCode = ''
+  clearCooldown('register')
+  void ensureRegisterCaptcha(true)
+}, { immediate: true })
+
+watch(registerNeedsCaptcha, (value) => {
+  if (value) {
+    void ensureRegisterCaptcha()
+  } else {
+    clearRegisterCaptcha()
   }
-})
+}, { immediate: true })
 
 onMounted(async () => {
   try {
     options.value = await getAuthOptionsApi()
   } catch {
-    uni.showToast({
-      title: '认证配置读取失败，已使用默认展示',
-      icon: 'none',
-    })
+    showTextToast('认证配置读取失败，已使用默认展示')
   }
 })
 
@@ -394,8 +435,13 @@ async function submitRegister() {
     showTextToast('两次输入的密码不一致')
     return
   }
-  if (registerNeedsSMS.value && !registerForm.smsCode.trim()) {
-    showTextToast('请先输入短信验证码')
+  if (!registerForm.verificationCode.trim()) {
+    showTextToast(registerType.value === 'email' ? '请先输入邮箱验证码' : '请先输入短信验证码')
+    return
+  }
+  if (!registerCaptcha.captchaId || !registerForm.captchaCode.trim()) {
+    await ensureRegisterCaptcha(true)
+    showTextToast('请先完成图形验证码')
     return
   }
 
@@ -406,7 +452,10 @@ async function submitRegister() {
       nickname: registerForm.nickname.trim(),
       password: registerForm.password,
       registerType: registerType.value,
-      smsCode: registerNeedsSMS.value ? registerForm.smsCode.trim() : undefined,
+      verificationCode: registerForm.verificationCode.trim(),
+      captchaId: registerCaptcha.captchaId,
+      captchaCode: registerForm.captchaCode.trim(),
+      smsCode: registerType.value === 'phone' ? registerForm.verificationCode.trim() : undefined,
     })
     uni.switchTab({ url: '/pages/index/index' })
   } catch (error) {
@@ -483,18 +532,42 @@ async function sendTwoFactorCode() {
   }
 }
 
-async function sendRegisterSMSCode() {
+async function sendRegisterCode() {
+  if (registerType.value === 'email') {
+    if (!emailPattern.test(registerForm.account.trim().toLowerCase())) {
+      showTextToast('请先输入有效邮箱')
+      return
+    }
+    await sendRegisterEmailCode()
+    return
+  }
+
   const phone = normalizePhone(registerForm.account)
   if (!phone) {
     showTextToast('请先输入有效手机号')
     return
   }
+  await sendRegisterSMSCode(phone)
+}
 
+async function sendRegisterEmailCode() {
+  try {
+    const payload = await sendEmailCodeApi({
+      email: registerForm.account.trim().toLowerCase(),
+      purpose: 'register',
+    })
+    applyRegisterDebugCode(payload)
+    startCooldown('register', payload.cooldownIn || 60)
+    showTextToast(buildCodeMessage(payload, '邮箱验证码'))
+  } catch (error) {
+    showTextToast(error instanceof Error ? error.message : '验证码发送失败')
+  }
+}
+
+async function sendRegisterSMSCode(phone: string) {
   try {
     const payload = await sendSMSCodeApi({ phone, purpose: 'register' })
-    if (payload.debugCode) {
-      registerForm.smsCode = payload.debugCode
-    }
+    applyRegisterDebugCode(payload)
     startCooldown('register', payload.cooldownIn || 60)
     showTextToast(buildCodeMessage(payload, '短信验证码'))
   } catch (error) {
@@ -507,6 +580,13 @@ async function ensureLoginCaptcha(force = false) {
     return
   }
   await refreshLoginCaptcha()
+}
+
+async function ensureRegisterCaptcha(force = false) {
+  if (!force && registerCaptcha.captchaId && registerCaptcha.imageData) {
+    return
+  }
+  await refreshRegisterCaptcha()
 }
 
 async function refreshLoginCaptcha() {
@@ -523,10 +603,30 @@ async function refreshLoginCaptcha() {
   }
 }
 
+async function refreshRegisterCaptcha() {
+  captchaLoading.value = true
+  try {
+    const payload = await getCaptchaApi()
+    registerCaptcha.captchaId = payload.captchaId
+    registerCaptcha.imageData = payload.imageData
+    registerForm.captchaCode = ''
+  } catch (error) {
+    showTextToast(error instanceof Error ? error.message : '图形验证码加载失败')
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
 function clearLoginCaptcha() {
   loginCaptcha.captchaId = ''
   loginCaptcha.imageData = ''
   loginForm.captchaCode = ''
+}
+
+function clearRegisterCaptcha() {
+  registerCaptcha.captchaId = ''
+  registerCaptcha.imageData = ''
+  registerForm.captchaCode = ''
 }
 
 async function handleLoginFailure(message: string) {
@@ -564,6 +664,13 @@ function resetUsernameProtection() {
 function applyLoginDebugCode(payload: SMSCodeResponse) {
   if (payload.debugCode) {
     loginForm.verificationCode = payload.debugCode
+  }
+}
+
+function applyRegisterDebugCode(payload: SMSCodeResponse) {
+  if (payload.debugCode) {
+    registerForm.verificationCode = payload.debugCode
+    registerForm.smsCode = payload.debugCode
   }
 }
 
