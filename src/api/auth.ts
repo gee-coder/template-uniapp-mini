@@ -15,6 +15,7 @@ export interface LoginPayload {
   account: string
   password: string
   loginType: AuthLoginType
+  smsCode?: string
 }
 
 export interface RegisterPayload {
@@ -22,6 +23,19 @@ export interface RegisterPayload {
   password: string
   nickname?: string
   registerType: AuthRegisterType
+  smsCode?: string
+}
+
+export interface SendSMSCodePayload {
+  phone: string
+  purpose: 'login' | 'register'
+}
+
+export interface SMSCodeResponse {
+  provider: string
+  expiresIn: number
+  cooldownIn: number
+  debugCode?: string
 }
 
 export interface ProfileUser {
@@ -61,6 +75,14 @@ export function loginApi(payload: LoginPayload) {
 export function registerApi(payload: RegisterPayload) {
   return request<TokenPayload>({
     url: '/auth/register',
+    method: 'POST',
+    data: payload,
+  })
+}
+
+export function sendSMSCodeApi(payload: SendSMSCodePayload) {
+  return request<SMSCodeResponse>({
+    url: '/auth/sms-codes',
     method: 'POST',
     data: payload,
   })
